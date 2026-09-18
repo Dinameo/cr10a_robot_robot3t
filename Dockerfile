@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y \
 # =========================
 # Workspace
 # =========================
-WORKDIR /cr10a_robot
+WORKDIR /cr10a_robot_robot3t
 
 
 # =========================
