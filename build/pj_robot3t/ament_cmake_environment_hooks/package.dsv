@@ -1,0 +1,4 @@
+source;share/pj_robot3t/local_setup.bash
+source;share/pj_robot3t/local_setup.dsv
+source;share/pj_robot3t/local_setup.sh
+source;share/pj_robot3t/local_setup.zsh
