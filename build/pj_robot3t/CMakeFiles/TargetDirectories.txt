@@ -1,9 +1,0 @@
-/pj_robot3t/build/pj_robot3t/CMakeFiles/uninstall.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/pj_robot3t_uninstall.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/test.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/edit_cache.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/rebuild_cache.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/list_install_components.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/install.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/install/local.dir
-/pj_robot3t/build/pj_robot3t/CMakeFiles/install/strip.dir
