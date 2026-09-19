@@ -101,7 +101,7 @@ ros2 run v4l2_camera v4l2_camera_node
 
 # Chạy giao diện GUI
 
-Tạo môi trương:
+Tạo môi trường:
 ```bash
 cd ~/cr10a_robot_robot3t
 python3 -m venv .venv
@@ -110,8 +110,16 @@ source .venv/bin/active
 
 Cài đặt thư viện:
 ```bash
+docker start cra10_ros2_cam
+docker exec -it cra10_ros2_cam bash
+cd /cr10a_robot_robot3t
+source ./.venv/bin/activae
 pip3 install PySide6
 pip install PyYAML
 pip install numpy
 pip install opencv-python
+```
+Chạy giao diện robot gui:
+```bash
+python3 -m robot_gui.main
 ```
