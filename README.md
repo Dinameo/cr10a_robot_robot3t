@@ -1,83 +1,37 @@
 
-Cài đặt docker theo hướng dẫn: https://docs.docker.com/engine/install/ubuntu/
+## 1. Máy host: cài đặt và tạo container
 
-Thêm user vào group docker
+Cài đặt Docker theo hướng dẫn: https://docs.docker.com/engine/install/ubuntu/
+
+Thêm user vào group Docker:
 
 ```bash
 sudo usermod -aG docker <USERNAME>
 newgrp docker
 ```
-Clone repo :
+
+Clone repository và build image:
+
 ```bash
 cd ~
 git clone https://github.com/Dinameo/cr10a_robot_robot3t.git
-```
-
-
-
-build image:
-```bash
 cd ~/cr10a_robot_robot3t
 docker build -t ros2_jazzy .
 ```
 
-Cho phép container truy cập màn hình (X server):
+Các lệnh dưới đây vẫn chạy trên **máy host**:
+
+Container duy nhất `cr10a_ros2` đã được cấp quyền truy cập GPU/display và webcam
+`/dev/video0`:
+
 ```bash
 xhost +local:docker
-```
-> Cần chạy lệnh nãy mỗi khi khởi động lại máy
-Tạo container mới:
-```bash
+
 mkdir -p /tmp/runtime
 chmod 700 /tmp/runtime
 
 docker run -it \
     --name cr10a_ros2 \
-    --device=/dev/dri:/dev/dri \
-    -e DISPLAY=$DISPLAY \
-    -e WAYLAND_DISPLAY=$WAYLAND_DISPLAY \
-    -e XDG_RUNTIME_DIR=/tmp/runtime \
-    -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-    -v $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY \
-    -v ~/cr10a_robot_robot3t:/cr10a_robot_robot3t \
-    ros2_jazzy
-```
-
-Build package
-```bash
-colcon build
-source install/setup.bash
-```
-Chạy mô phỏng:
-```bash
-ros2 launch cr10a_robot gazebo.launch.py
-```
-
-Điểu khiển góc, ví dụ điểu khiển khớp 1 về vị trí 0.5 rad trong 3s:
-```bash
-ros2 action send_goal -f /arm_controller/follow_joint_trajectory \
-  control_msgs/action/FollowJointTrajectory \
-  "trajectory:
-    joint_names: [Joint1, Joint2, Joint3, Joint4, Joint5, Joint6]
-    points:
-    - positions: [0.5, 0.0, 0.0, 0.0, 0.0, 0.0]
-      time_from_start: {sec: 3}"
-
-```
-
-Stream camera máy tính vào gazebo
-
-Kiểm tra thiết bị:
-```bash
-ls /dev/video*
-```
-
-video0 là camera của máy tính
-
-Tạo lại container khác:
-```bash
-docker run -it \
-    --name cr10a_ros2_cam \
     --device=/dev/dri:/dev/dri \
     --device=/dev/video0:/dev/video0 \
     -e DISPLAY=$DISPLAY \
@@ -87,39 +41,75 @@ docker run -it \
     -v $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY \
     -v ~/cr10a_robot_robot3t:/cr10a_robot_robot3t \
     ros2_jazzy
-
-```
-Cài driver ROS cho webcam nếu chưa có:
-```bash
-apt install ros-jazzy-v4l2-camera
 ```
 
-Khởi chạy node camera V4L2:
+`xhost +local:docker` cần chạy lại sau mỗi lần khởi động máy. Kiểm tra webcam
+trước khi tạo container:
+
 ```bash
-ros2 run v4l2_camera v4l2_camera_node
+ls /dev/video*
 ```
 
-# Chạy giao diện GUI
+Sau lệnh `docker run`, terminal hiện tại đã chuyển vào container. Từ đây,
+mọi lệnh có prompt `root@cr10a_robot$` đều chạy **bên trong container**.
 
-Tạo môi trường:
-```bash
-cd ~/cr10a_robot_robot3t
-python3 -m venv .venv
-source .venv/bin/active
-```
+## 2. Trong container: build và chạy mô phỏng
 
-Cài đặt thư viện:
+Thực hiện trong container:
+
 ```bash
-docker start cra10_ros2_cam
-docker exec -it cra10_ros2_cam bash
 cd /cr10a_robot_robot3t
-source ./.venv/bin/activae
-pip3 install PySide6
-pip install PyYAML
-pip install numpy
-pip install opencv-python
+colcon build
+source install/setup.bash
+ros2 launch cr10a_robot gazebo.launch.py
 ```
-Chạy giao diện robot gui:
+
+Ví dụ đưa Joint1 về `0.5` rad trong 3 giây:
+
 ```bash
+ros2 action send_goal -f /arm_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "trajectory:
+    joint_names: [Joint1, Joint2, Joint3, Joint4, Joint5, Joint6]
+    points:
+    - positions: [0.5, 0.0, 0.0, 0.0, 0.0, 0.0]
+      time_from_start: {sec: 3}"
+```
+
+## 3. Trong container: kiểm tra camera
+
+Phần này chỉ dùng để kiểm tra container có truy cập được webcam hay chưa.
+Camera được sử dụng trực tiếp bởi Robot GUI.
+
+```bash
+ls -l /dev/video0
+```
+
+Nếu file tồn tại, kiểm tra camera có thể mở được:
+
+```bash
+python3 - <<'PY'
+from PySide6.QtWidgets import QApplication
+from PySide6.QtMultimedia import QMediaDevices
+
+app = QApplication([])
+cameras = QMediaDevices.videoInputs()
+print(f"Found {len(cameras)} camera(s)")
+for camera in cameras:
+  print(camera.description(), bytes(camera.id()).decode(errors="replace"))
+PY
+```
+
+Kết quả cần thấy webcam và thiết bị tương ứng, thường là `/dev/video0`.
+
+## 4. Trong container: Robot GUI
+
+Mở terminal thứ hai trên **máy host**, sau đó dùng `docker exec` để mở shell
+thứ hai bên trong container:
+
+```bash
+docker exec -it cr10a_ros2 bash
+cd /cr10a_robot_robot3t
+source install/setup.bash
 python3 -m robot_gui.main
 ```
