@@ -62,6 +62,7 @@ class RosWorker(QObject):
         self.node = None
 
         self.action_client = None
+        self.active_goal_handle = None
         self.joint_state_sub = None
         self.robot_info_subscriptions = {}
         self.robot_info_republish_clients = {}
@@ -500,6 +501,7 @@ class RosWorker(QObject):
 
                 return
 
+            self.active_goal_handle = goal_handle
             self.success.emit("Trajectory đã được chấp nhận.")
 
             result_future = (
@@ -529,6 +531,7 @@ class RosWorker(QObject):
 
             result = future.result()
 
+            self.active_goal_handle = None
             self.success.emit("Trajectory hoàn thành.")
 
         except Exception as e:
@@ -536,6 +539,26 @@ class RosWorker(QObject):
             self.error.emit(
                 f"Trajectory result error: {e}"
             )
+
+    @Slot()
+    def cancel_current_goal(self):
+        if self.active_goal_handle is None:
+            self.success.emit("Không có trajectory đang chạy.")
+            return
+
+        future = self.active_goal_handle.cancel_goal_async()
+        future.add_done_callback(self.cancel_result_callback)
+
+    def cancel_result_callback(self, future):
+        try:
+            response = future.result()
+            self.active_goal_handle = None
+            if response.goals_canceling:
+                self.success.emit("Đã dừng khẩn trajectory hiện tại.")
+            else:
+                self.error.emit("Không thể dừng trajectory hiện tại.")
+        except Exception as e:
+            self.error.emit(f"Emergency stop error: {e}")
 
     # --------------------------------------------------------
     # SPIN
@@ -688,6 +711,7 @@ class GazeboBackend(QObject):
     # GUI -> Worker
     connect_requested = Signal(str, str)
     publish_requested = Signal(list, int)
+    cancel_requested = Signal()
     stop_requested = Signal()
 
     def __init__(self, parent=None):
@@ -731,6 +755,10 @@ class GazeboBackend(QObject):
 
         self.publish_requested.connect(
             self.worker.send_joint_command
+        )
+
+        self.cancel_requested.connect(
+            self.worker.cancel_current_goal
         )
 
         self.stop_requested.connect(
@@ -866,6 +894,9 @@ class GazeboBackend(QObject):
             list(angles_deg),
             int(speed_override)
         )
+
+    def emergency_stop(self):
+        self.cancel_requested.emit()
 
     # --------------------------------------------------------
     # DISCONNECT

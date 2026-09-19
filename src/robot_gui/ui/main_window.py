@@ -8,6 +8,7 @@ from robot_gui.ui.camera.camera_panel import CameraPanel
 from robot_gui.ui.camera.camera_dialog import CameraDialog
 from robot_gui.ui.gazebo.gazebo_dialog import GazeboDialog
 from robot_gui.ui.robot.joint_panel import JointPanel
+from robot_gui.ui.robot.actual_position_panel import ActualPositionPanel
 from robot_gui.ui.robot.speed_panel import SpeedPanel
 from robot_gui.ui.robot.position_panel import PositionPanel
 from robot_gui.ui.robot.mode_panel import ModePanel
@@ -33,6 +34,7 @@ class MainWindow(QMainWindow):
 
         self.camera_panel = CameraPanel()
         self.joint_panel = JointPanel()
+        self.actual_position_panel = ActualPositionPanel()
         self.speed_panel = SpeedPanel()
         self.position_panel = PositionPanel()
         self.mode_panel = ModePanel()
@@ -56,21 +58,26 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
-        right_layout = QVBoxLayout()
-        right_layout.setSpacing(12)
-        right_layout.addWidget(self.joint_panel)
-        right_layout.addWidget(self.speed_panel)
-        right_layout.addWidget(self.position_panel)
-        right_layout.addWidget(self.mode_panel)
-        right_layout.addStretch()
+        camera_column = QVBoxLayout()
+        camera_column.setSpacing(12)
+        camera_column.addWidget(self.camera_panel, 1)
+        camera_column.addWidget(self.log_panel, 0)
+
+        control_column = QVBoxLayout()
+        control_column.setSpacing(12)
+        control_column.addWidget(self.joint_panel)
+        control_column.addWidget(self.actual_position_panel)
+        control_column.addWidget(self.speed_panel)
+        control_column.addWidget(self.position_panel)
+        control_column.addWidget(self.mode_panel)
+        control_column.addStretch()
 
         top_layout = QHBoxLayout()
         top_layout.setSpacing(12)
-        top_layout.addWidget(self.camera_panel, 3)
-        top_layout.addLayout(right_layout, 2)
+        top_layout.addLayout(camera_column, 3)
+        top_layout.addLayout(control_column, 2)
 
         main_layout.addLayout(top_layout, 1)
-        main_layout.addWidget(self.log_panel, 0)
 
     def setup_menu(self):
         menu_bar = self.menuBar()
@@ -94,8 +101,10 @@ class MainWindow(QMainWindow):
         self.camera_backend.error.connect(self.on_camera_error)
 
         # Gazebo
-        self.gazebo_backend.joint_state_received.connect(self.on_joint_state_received)
         self.gazebo_backend.robot_info_received.connect(self.on_robot_info)
+        self.gazebo_backend.joint_state_received.connect(
+            self.actual_position_panel.set_values
+        )
         self.gazebo_backend.connected.connect(self.on_gazebo_connected)
         self.gazebo_backend.disconnected.connect(self.on_gazebo_disconnected)
         self.gazebo_backend.error.connect(self.on_gazebo_error)
@@ -204,6 +213,15 @@ class MainWindow(QMainWindow):
         info = self.gazebo_backend.latest_robot_info
 
         if info:
+            limits = list(
+                zip(
+                    info.get("min_angle_deg", []),
+                    info.get("max_angle_deg", []),
+                )
+            )
+            if len(limits) == 6:
+                self.joint_panel.set_limits(limits)
+
             lines.append("--- Robot Info ---")
             lines.append(
                 f"Model: {info.get('model', '?')}"
@@ -253,6 +271,7 @@ class MainWindow(QMainWindow):
 
         self.gazebo_control_topic = ""
         self.gazebo_joint_state_topic = ""
+        self.joint_panel.set_enabled(False)
 
         self.log_panel.info(
             "Đã ngắt kết nối Gazebo."
@@ -276,29 +295,14 @@ class MainWindow(QMainWindow):
                 )
             )
 
-            if len(limits) == 6:
-                self.joint_panel.set_limits(
-                    limits
-                )
-
         except (KeyError, TypeError, ValueError):
             pass
 
     # ---------------------------------------------------------
     # Joint / manual control
     # ---------------------------------------------------------
-    def on_joint_state_received(self, positions):
-        if not self.mode_panel.is_manual():
-            return
-
-        self._updating_sliders = True
-        try:
-            # GazeboBackend đã chuyển radian -> degree.
-            self.joint_panel.set_values(
-                [round(value, 2) for value in positions]
-            )
-        finally:
-            self._updating_sliders = False
+    def on_joint_state_received(self, _positions):
+        return
 
     def on_joint_changed(self, _index, _value):
         if self._updating_sliders or not self.mode_panel.is_manual():
@@ -319,7 +323,6 @@ class MainWindow(QMainWindow):
 
     def on_mode_changed(self, manual):
         if manual:
-            self.on_joint_state_received(self.gazebo_backend.latest_positions)
             self.log_panel.info("Chuyển sang chế độ Manual.")
         else:
             self.log_panel.info("Chuyển sang chế độ Automatic.")
@@ -338,8 +341,8 @@ class MainWindow(QMainWindow):
         if not self.gazebo_control_topic:
             self.log_panel.error("Không thể STOP robot: Gazebo chưa được kết nối.")
             return
-        # Backend hiện tại chưa có message STOP riêng; giữ nút cho kiến trúc UI.
-        self.log_panel.warning("STOP chưa được ánh xạ vào ROS2 controller hiện tại.")
+        self.gazebo_backend.emergency_stop()
+        self.log_panel.warning("Đã gửi lệnh dừng khẩn trajectory hiện tại.")
 
     def on_move(self, data):
         invalid = [name for name, value in data.items() if value is None]

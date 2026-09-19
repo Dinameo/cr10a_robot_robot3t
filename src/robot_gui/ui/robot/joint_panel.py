@@ -38,14 +38,16 @@ class JointPanel(QGroupBox):
         layout.setSpacing(2)
 
         self.joints = []
+        self._dragging_joints = set()
         for i in range(1, 7):
             row = JointRow(f"Joint {i}")
             self.joints.append(row)
             layout.addWidget(row)
+            row.slider.sliderPressed.connect(
+                lambda index=i - 1: self._dragging_joints.add(index)
+            )
             row.slider.sliderReleased.connect(
-                lambda index=i - 1, r=row: self.joint_released.emit(
-                    index, r.slider.value()
-                )
+                lambda index=i - 1, r=row: self._release_joint(index, r)
             )
 
         buttons = QHBoxLayout()
@@ -63,9 +65,18 @@ class JointPanel(QGroupBox):
         return [joint.slider.value() for joint in self.joints]
 
     def set_values(self, values):
-        for row, value in zip(self.joints, values):
+        for index, (row, value) in enumerate(zip(self.joints, values)):
+            if index in self._dragging_joints:
+                continue
             value = max(row.slider.minimum(), min(row.slider.maximum(), int(value)))
             row.slider.setValue(value)
+
+    def is_dragging(self):
+        return bool(self._dragging_joints)
+
+    def _release_joint(self, index, row):
+        self.joint_released.emit(index, row.slider.value())
+        self._dragging_joints.discard(index)
 
     def set_limits(self, limits):
         for row, (minimum, maximum) in zip(self.joints, limits):
@@ -74,5 +85,9 @@ class JointPanel(QGroupBox):
             if lo > hi:
                 lo, hi = hi, lo
             row.slider.setRange(lo, hi)
-            row.slider.setValue(max(lo, min(hi, row.slider.value())))
+            row.slider.setValue(max(lo, min(hi, 0)))
             row.slider.setEnabled(True)
+
+    def set_enabled(self, enabled):
+        for row in self.joints:
+            row.slider.setEnabled(enabled)
