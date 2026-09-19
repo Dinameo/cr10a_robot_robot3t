@@ -21,30 +21,10 @@ def generate_launch_description():
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
 
-    # Bỏ XML declaration để tránh lỗi parser
-    robot_description = robot_description.replace(
-        '<?xml version="1.0"?>',
-        ''
-    ).replace(
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        ''
-    )
-
-    # Đổi đường dẫn mesh package:// thành đường dẫn tuyệt đối
-    mesh_dir = os.path.join(
-        pkg_dir,
-        'meshes'
-    )
-
     resource_dir = os.path.dirname(pkg_dir)
     ros_distro = os.environ.get('ROS_DISTRO', 'jazzy')
     plugin_dir = os.path.join('/opt/ros', ros_distro, 'lib')
-
-    robot_description = robot_description.replace(
-        'package://urdf_files/meshes/',
-        'file://' + mesh_dir + '/'
-    )
-
+    
     return LaunchDescription([
 
         SetEnvironmentVariable(
@@ -103,6 +83,12 @@ def generate_launch_description():
             ],
 
             output='screen'
+        ),
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+            output='screen',
         ),
 
         # =========================
