@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     vim \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    python3-venv \
+    ibxcb-cursor0
 
 
 # =========================
@@ -35,6 +37,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-gz-ros2-control \
     ros-jazzy-ros2-controllers \
     ros-jazzy-ros-gz-bridge \
+    ros-jazzy-v4l2-camera \
     ros-jazzy-joint-state-publisher-gui \
     ros-jazzy-xacro \
     ros-jazzy-rviz2 \

@@ -64,3 +64,54 @@ ros2 action send_goal -f /arm_controller/follow_joint_trajectory \
       time_from_start: {sec: 3}"
 
 ```
+
+Stream camera máy tính vào gazebo
+
+Kiểm tra thiết bị:
+```bash
+ls /dev/video*
+```
+
+video0 là camera của máy tính
+
+Tạo lại container khác:
+```bash
+docker run -it \
+    --name cr10a_ros2_cam \
+    --device=/dev/dri:/dev/dri \
+    --device=/dev/video0:/dev/video0 \
+    -e DISPLAY=$DISPLAY \
+    -e WAYLAND_DISPLAY=$WAYLAND_DISPLAY \
+    -e XDG_RUNTIME_DIR=/tmp/runtime \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+    -v $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY \
+    -v ~/cr10a_robot_robot3t:/cr10a_robot_robot3t \
+    ros2_jazzy
+
+```
+Cài driver ROS cho webcam nếu chưa có:
+```bash
+apt install ros-jazzy-v4l2-camera
+```
+
+Khởi chạy node camera V4L2:
+```bash
+ros2 run v4l2_camera v4l2_camera_node
+```
+
+# Chạy giao diện GUI
+
+Tạo môi trương:
+```bash
+cd ~/cr10a_robot_robot3t
+python3 -m venv .venv
+source .venv/bin/active
+```
+
+Cài đặt thư viện:
+```bash
+pip3 install PySide6
+pip install PyYAML
+pip install numpy
+pip install opencv-python
+```

@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path
+
+import rclpy
+import yaml
+from ament_index_python.packages import get_package_share_directory
+from rclpy.node import Node
+from rclpy.qos import (
+    QoSDurabilityPolicy,
+    QoSHistoryPolicy,
+    QoSProfile,
+    QoSReliabilityPolicy,
+)
+from std_msgs.msg import String
+from std_srvs.srv import Trigger
+
+
+CONFIG_PATH = Path(
+    get_package_share_directory("cr10a_robot")
+) / "config" / "robot_info.yaml"
+
+
+def load_robot_info():
+    with CONFIG_PATH.open(encoding="utf-8") as config_file:
+        config = yaml.safe_load(config_file)
+
+    robot = config["robot"]
+    joints = robot["joints"]
+    if len(joints) != int(robot["dof"]):
+        raise ValueError("robot_info.yaml dof does not match joints")
+
+    info = {
+        "robot_id": robot["robot_id"],
+        "model": robot["model"],
+        "dof": int(robot["dof"]),
+        "joints": [joint["name"] for joint in joints],
+        "max_speed_deg_s": [joint["max_speed_deg_s"] for joint in joints],
+        "min_angle_deg": [joint["min_angle_deg"] for joint in joints],
+        "max_angle_deg": [joint["max_angle_deg"] for joint in joints],
+        "control_action_topic": robot["control_action_topic"],
+        "joint_state_topic": robot["joint_state_topic"],
+        "unit": robot.get("unit", "deg"),
+    }
+    return info
+
+
+class RobotInfoPublisher(Node):
+
+    def __init__(self):
+        super().__init__("robot_info_publisher")
+
+        qos = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+        )
+
+        self._info = load_robot_info()
+        robot_id = self._info["robot_id"]
+        self._robot_info_topic = f"/robot_info/{robot_id}"
+        self._republish_service_name = (
+            f"/robot_info/{robot_id}/republish"
+        )
+
+        self._pub = self.create_publisher(
+            String,
+            self._robot_info_topic,
+            qos,
+        )
+        self._republish_service = self.create_service(
+            Trigger,
+            self._republish_service_name,
+            self._republish_callback,
+        )
+
+        self.publish()
+
+    def publish(self):
+        msg = String()
+        msg.data = json.dumps(self._info)
+        self._pub.publish(msg)
+        self.get_logger().info(
+            f"Đã publish /robot_info (transient_local): "
+            f"{json.dumps(self._info, ensure_ascii=False)}"
+        )
+
+    def _republish_callback(self, _request, response):
+        self.publish()
+        response.success = True
+        response.message = "Robot info đã được publish lại."
+        return response
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = RobotInfoPublisher()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

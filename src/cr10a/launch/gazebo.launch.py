@@ -84,10 +84,23 @@ def generate_launch_description():
 
             output='screen'
         ),
+        # =========================
+        # Bridge /clock: Gazebo → ROS 2
+        # =========================
         Node(
             package='ros_gz_bridge',
             executable='parameter_bridge',
             arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+            output='screen',
+        ),
+
+        # =========================
+        # Robot Info Publisher: /robot_info
+        # =========================
+        Node(
+            package='cr10a_robot',
+            executable='robot_info_publisher',
+            name='robot_info_publisher',
             output='screen',
         ),
 
@@ -104,7 +117,7 @@ def generate_launch_description():
                         '-world',
                         'empty',
                         '-name',
-                        'urdf_files',
+                        'cr10a_robot',
                         '-x',
                         '0',
                         '-y',

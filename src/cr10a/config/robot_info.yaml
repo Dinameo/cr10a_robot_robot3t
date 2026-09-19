@@ -1,0 +1,32 @@
+robot:
+  robot_id: CR10A_1
+  model: CR10A
+  dof: 6
+  unit: deg
+  control_action_topic: /arm_controller/follow_joint_trajectory
+  joint_state_topic: /joint_states
+  joints:
+    - name: Joint1
+      max_speed_deg_s: 150
+      min_angle_deg: -360
+      max_angle_deg: 360
+    - name: Joint2
+      max_speed_deg_s: 150
+      min_angle_deg: -360
+      max_angle_deg: 360
+    - name: Joint3
+      max_speed_deg_s: 180
+      min_angle_deg: -160
+      max_angle_deg: 160
+    - name: Joint4
+      max_speed_deg_s: 223
+      min_angle_deg: -360
+      max_angle_deg: 360
+    - name: Joint5
+      max_speed_deg_s: 223
+      min_angle_deg: -360
+      max_angle_deg: 360
+    - name: Joint6
+      max_speed_deg_s: 223
+      min_angle_deg: -360
+      max_angle_deg: 360
